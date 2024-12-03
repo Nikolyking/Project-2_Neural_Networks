@@ -1,6 +1,9 @@
 #include "project2_a.h"
 
 int main() {
+
+  std::string training_data_file = "project_training_data.dat";
+  std::vector<std::pair<DoubleVector, DoubleVector>> training_data;
   // Instantiate an activation function (same for all layers)
   ActivationFunction* activation_function_pt = new TanhActivationFunction;
 
@@ -22,10 +25,27 @@ int main() {
 
   // Create the NeuralNetwork instance
   NeuralNetwork network(n_input, non_input_layer);
-  network.initialise_parameters(0.0, 1.0);
+  network.initialise_parameters(0.0, 0.1);
+  network.read_training_data(training_data_file, training_data);
 
-  // Create the NeuralNetwork instance
-  NeuralNetwork network(n_input, non_input_layer);
+  // Train the network
+  double learning_rate = 0.001;
+  double tol_training = 0.01;
+  unsigned max_iter = 100000;
+  std::string convergence_history_file = "convergence_history.txt";
+
+  network.train(training_data, learning_rate, tol_training, max_iter, convergence_history_file);
+
+  // Evaluate the network on the training data
+  double total_cost = network.cost_for_training_data(training_data);
+  std::cout << "Total cost for training data after training: " << total_cost << std::endl;
+
+  // Save the trained parameters to a file
+  network.write_parameters_to_disk("trained_parameters.dat");
+
+
+  // Clean up
+  delete activation_function_pt;
 
   // Proceed with initializing parameters and testing
   return 0;
