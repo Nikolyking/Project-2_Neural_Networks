@@ -15,10 +15,10 @@ int main() {
   std::vector<std::pair<unsigned, ActivationFunction*>> non_input_layer;
 
   // First hidden layer with 3 neurons
-  non_input_layer.push_back(std::make_pair(3, activation_function_pt));
+  non_input_layer.push_back(std::make_pair(4, activation_function_pt));
 
   // Second hidden layer with 3 neurons
-  non_input_layer.push_back(std::make_pair(3, activation_function_pt));
+  non_input_layer.push_back(std::make_pair(4, activation_function_pt));
 
   // Output layer with 1 neuron
   non_input_layer.push_back(std::make_pair(1, activation_function_pt));
@@ -29,9 +29,9 @@ int main() {
   network.read_training_data(training_data_file, training_data);
 
   // Train the network
-  double learning_rate = 0.001;
-  double tol_training = 0.01;
-  unsigned max_iter = 100000;
+  double learning_rate = 0.01;
+  double tol_training = 0.001;
+  unsigned max_iter = 4000000;
   std::string convergence_history_file = "convergence_history.txt";
 
   network.train(training_data, learning_rate, tol_training, max_iter, convergence_history_file);
@@ -41,8 +41,18 @@ int main() {
   std::cout << "Total cost for training data after training: " << total_cost << std::endl;
 
   // Save the trained parameters to a file
-  network.write_parameters_to_disk("trained_parameters.dat");
-
+  std::ofstream boundary_file("boundary_data.txt");
+  for (double x1 = 0.0; x1 <= 1.0; x1 += 0.01) {
+    for (double x2 = 0.0; x2 <= 1.0; x2 += 0.01) {
+        DoubleVector input(2);
+        input[0] = x1;
+        input[1] = x2;
+        DoubleVector output;
+        network.feed_forward(input, output);
+        boundary_file << x1 << " " << x2 << " " << output[0] << std::endl;
+    }
+  }
+  boundary_file.close();
 
   // Clean up
   delete activation_function_pt;
