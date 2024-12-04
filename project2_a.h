@@ -102,7 +102,6 @@ public:
       const std::vector<std::pair<unsigned, ActivationFunction *>> &non_input_layer);
 
   // Override pure virtual functions with dummy implementations
-
   // Feed-forward function
   void feed_forward(const DoubleVector &input, DoubleVector &output) const override;
 
@@ -116,6 +115,7 @@ public:
   // Write network parameters to disk
   void write_parameters_to_disk(const std::string &filename) const override;
 
+  // Read training data
   void read_training_data(const std::string &filename, std::vector<std::pair<DoubleVector, DoubleVector>> &training_data) const;
 
   // Read network parameters from disk
@@ -142,22 +142,26 @@ private:
   // Static random number generator with fixed seed
   static std::mt19937 random_generator;
 
+  // Perform feed-forward pass and store intermediate results
   void feed_forward_with_intermediate_results(
       const DoubleVector &input,
       std::vector<DoubleVector> &activations,
       std::vector<DoubleVector> &weighted_inputs) const;
 
+  // Compute the delta for the output layer during backpropagation
   DoubleVector compute_output_layer_delta(
       const DoubleVector &output_activations,
       const DoubleVector &target_output,
       const DoubleVector &weighted_input,
       const NeuralNetworkLayer &output_layer) const;
 
+  // Backpropagate the error through the network
   std::vector<DoubleVector> backpropagate_error(
       const DoubleVector &output_delta,
       const std::vector<DoubleVector> &weighted_inputs,
       const std::vector<DoubleVector> &activations) const;
 
+  // Update the weights and biases of the network
   void update_weights_and_biases(
       const std::vector<DoubleVector> &deltas,
       const std::vector<DoubleVector> &activations,
@@ -173,6 +177,7 @@ NeuralNetwork::NeuralNetwork(
   // Initialize the network layers
   unsigned previous_layer_size = n_input;
 
+  // Auto type inference is used to simpify the code
   for (const auto &layer_info : non_input_layer) {
     unsigned n_neurons = layer_info.first;
     ActivationFunction *activation_function = layer_info.second;
@@ -291,32 +296,48 @@ void NeuralNetwork::write_parameters_to_disk(const std::string &filename) const 
   outfile.close();
 }
 
+// Function to read training data from a file and store it in a vector
+// of input-output pairs
 void NeuralNetwork::read_training_data(const std::string &filename, std::vector<std::pair<DoubleVector, DoubleVector>> &training_data) const {
+  
+  // Open the file
   std::ifstream infile(filename.c_str());
+
+  // Check if the file was opened
   if (!infile.is_open()) {
     throw std::runtime_error("Unable to open file for reading: " + filename);
   }
 
+  // Variables to store the number of training sets, input size, and output size
   unsigned n_training_sets, n_input, n_output;
+
+  // Read the number of training sets, input size, and output size from the file
   infile >> n_training_sets >> n_input >> n_output;
 
+  // Loop through each training set
   for (unsigned i = 0; i < n_training_sets; ++i) {
     DoubleVector input(n_input);
     DoubleVector output(n_output);
 
+    // Read the input data
     for (unsigned j = 0; j < n_input; ++j) {
       infile >> input[j];
     }
 
+    // Read the output data
     for (unsigned j = 0; j < n_output; ++j) {
       infile >> output[j];
     }
 
+    // Add pair to the training data
     training_data.push_back(std::make_pair(input, output));
   }
 
+  // End_of_file handler
   std::string end_of_file;
   infile >> end_of_file;
+
+  // Check presence of end_of_file
   if (end_of_file != "end_of_file") {
     throw std::runtime_error("Training data file format error: missing 'end_of_file' marker.");
   }
@@ -385,34 +406,51 @@ void NeuralNetwork::read_parameters_from_disk(const std::string &filename) {
   infile.close();
 }
 
+// Function to perform feed-forward computation in the neural network
+// and store intermediate results (activations and weighted inputs) for each layer
 void NeuralNetwork::feed_forward_with_intermediate_results(
     const DoubleVector &input,
     std::vector<DoubleVector> &activations,
     std::vector<DoubleVector> &weighted_inputs) const {
 
+  // Initialize first layer inputs 
   DoubleVector layer_input = input;
   activations.push_back(layer_input);
 
+  // Loop through each layer
   for (const auto &layer : layers) {
+
+    // VEctor to store the weighted input in each layer  
     DoubleVector weighted_input(layer.get_n_neurons());
+
+    // Loop to calculate the weight input for each neuron in the current layer
     for (unsigned j = 0; j < layer.get_n_neurons(); ++j) {
       weighted_input[j] = layer.biases[j];
+
+      // Add the weighted sum of inputs from the previous layer 
       for (unsigned k = 0; k < layer.get_n_input(); ++k) {
         weighted_input[j] += layer.weights(j, k) * layer_input[k];
       }
     }
+
+     // Store the weighted input
     weighted_inputs.push_back(weighted_input);
 
+    // Vector to store the activation for the layer
     DoubleVector layer_output(layer.get_n_neurons());
+
+    // Calculate the activation for each neuron in the layer
     for (unsigned j = 0; j < layer.get_n_neurons(); ++j) {
       layer_output[j] = layer.activation_function_pt->sigma(weighted_input[j]);
     }
     activations.push_back(layer_output);
 
+    // Update the input for the next layer
     layer_input = layer_output;
   }
 }
 
+// Function to calculate the error term for the output layer during backpropagation
 DoubleVector NeuralNetwork::compute_output_layer_delta(
     const DoubleVector &output_activations,
     const DoubleVector &target_output,
@@ -420,32 +458,48 @@ DoubleVector NeuralNetwork::compute_output_layer_delta(
     const NeuralNetworkLayer &output_layer) const {
 
   DoubleVector delta(output_activations.n());
+
+  // Loop through each neuron in output layer
   for (unsigned j = 0; j < output_activations.n(); ++j) {
+    // Calculate the derivative of the function for the weighted input
     double sigma_prime = output_layer.activation_function_pt->dsigma(weighted_input[j]);
+    // Compute the error for the current neuron
     delta[j] = sigma_prime * (output_activations[j] - target_output[j]);
   }
   return delta;
 }
-
+// Function to compute the error through the whole neural network
 std::vector<DoubleVector> NeuralNetwork::backpropagate_error(
     const DoubleVector &output_delta,
     const std::vector<DoubleVector> &weighted_inputs,
     const std::vector<DoubleVector> &activations) const {
 
+  // Vector to store the the deltas for each layer
   std::vector<DoubleVector> deltas(layers.size());
+  // Set delta for the output layer 
   deltas.back() = output_delta;
 
+  // Loop htrough each layer, but the output one 
   for (int l = layers.size() - 2; l >= 0; --l) {
     const auto &layer = layers[l];
     const auto &next_layer = layers[l + 1];
+    // Create a delta vector in each layer
     DoubleVector delta(layer.get_n_neurons());
 
+    // Loop through each neuron in the network
     for (unsigned j = 0; j < layer.get_n_neurons(); ++j) {
+      // Calculate the deriative of the activation function 
       double sigma_prime = layer.activation_function_pt->dsigma(weighted_inputs[l][j]);
       double sum = 0.0;
+
+      // Loop through each neuron in the next layer
       for (unsigned k = 0; k < next_layer.get_n_neurons(); ++k) {
+
+        // Set sum equal to the weighted delta from the next layer
         sum += next_layer.weights(k, j) * deltas[l + 1][k];
       }
+
+      // Calculate delta for the current layer
       delta[j] = sigma_prime * sum;
     }
     deltas[l] = delta;
@@ -453,19 +507,26 @@ std::vector<DoubleVector> NeuralNetwork::backpropagate_error(
   return deltas;
 }
 
+// Function to update the weights and biases based on deltas and activations 
 void NeuralNetwork::update_weights_and_biases(
     const std::vector<DoubleVector> &deltas,
     const std::vector<DoubleVector> &activations,
     const double &learning_rate) {
 
+  // Loop through each layer in the neural network
   for (unsigned l = 0; l < layers.size(); ++l) {
+    // Create pointers to every layer's paramatres 
     auto &layer = layers[l];
     const auto &delta = deltas[l];
     const auto &activation = activations[l];
 
+    // Loop through each neuron
     for (unsigned j = 0; j < layer.get_n_neurons(); ++j) {
+      // Update the bias 
       layer.biases[j] -= learning_rate * delta[j];
+      // Loop through each input to the neuron  
       for (unsigned k = 0; k < layer.get_n_input(); ++k) {
+        // Update weight for the current input to the current neuron
         layer.weights(j, k) -= learning_rate * delta[j] * activation[k];
       }
     }
@@ -483,11 +544,9 @@ void NeuralNetwork::train(
   // Output welcome message
   std::cout << "Model training has started" << std::endl;
 
-  // Initialize random number generator for shuffling
+  // Initialize random number generator for shuffling to improve quality of training
+  // by reducing chance of overfitting and enhanced generalization 
   std::default_random_engine generator(static_cast<unsigned>(std::time(0)));
-
-  // Initialize iteration counter
-  unsigned iter = 0;
 
   // Open convergence history file if provided
   std::ofstream convergence_file;
@@ -497,6 +556,9 @@ void NeuralNetwork::train(
       throw std::runtime_error("Unable to open convergence history file: " + convergence_history_file_name);
     }
   }
+
+  // Initialize iteration counter
+  unsigned iter = 0;
 
   // Training loop
   while (iter < max_iter) {
@@ -527,7 +589,7 @@ void NeuralNetwork::train(
     // Compute the total cost for the training data
     double total_cost = cost_for_training_data(training_data);
 
-    // Record convergence history if file is provided
+    // Record convergence history
     if (convergence_file.is_open()) {
       convergence_file << iter << " " << total_cost << std::endl;
     }
@@ -539,6 +601,11 @@ void NeuralNetwork::train(
 
     // Increment iteration counter
     ++iter;
+  }
+
+  // Check if the maximum number of iterations was reached without convergence
+  if (iter == max_iter) {
+  std::cout << "Training did not converge after " << max_iter << " iterations." << std::endl;
   }
 
   // Close convergence history file if open
