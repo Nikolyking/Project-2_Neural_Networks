@@ -14,10 +14,13 @@ int main() {
   // Storage for the non-input layers: number of neurons and activation function
   std::vector<std::pair<unsigned, ActivationFunction*>> non_input_layer;
 
-  // First hidden layer with 3 neurons
+  // First hidden layer with 4 neurons
   non_input_layer.push_back(std::make_pair(4, activation_function_pt));
 
-  // Second hidden layer with 3 neurons
+  // Second hidden layer with 4 neurons
+  non_input_layer.push_back(std::make_pair(4, activation_function_pt));
+
+  // Third hidden layer with 4 neurons
   non_input_layer.push_back(std::make_pair(4, activation_function_pt));
 
   // Output layer with 1 neuron

@@ -162,17 +162,6 @@ private:
       const std::vector<DoubleVector> &deltas,
       const std::vector<DoubleVector> &activations,
       const double &learning_rate);
-
-  void compute_gradients_finite_diff(
-      const DoubleVector &input,
-      const DoubleVector &target_output,
-      std::vector<DoubleMatrix> &weight_gradients,
-      std::vector<DoubleVector> &bias_gradients,
-      const double eps);
-
-  void validate_gradients(
-      const DoubleVector &input,
-      const DoubleVector &target_output);
 };
 
 // NeuralNetwork constructor implementation
@@ -483,88 +472,6 @@ void NeuralNetwork::update_weights_and_biases(
   }
 }
 
-void NeuralNetwork::compute_gradients_finite_diff(
-    const DoubleVector &input,
-    const DoubleVector &target_output,
-    std::vector<DoubleMatrix> &weight_gradients,
-    std::vector<DoubleVector> &bias_gradients,
-    const double eps) {
-
-  // Initialize gradient storage
-  weight_gradients.resize(layers.size());
-  bias_gradients.resize(layers.size());
-
-  // Store original cost
-  double original_cost = cost(input, target_output);
-
-  // Compute gradients for each layer
-  for (size_t l = 0; l < layers.size(); ++l) {
-    // Bias gradients
-    bias_gradients[l] = DoubleVector(layers[l].get_n_neurons());
-    for (unsigned j = 0; j < layers[l].get_n_neurons(); ++j) {
-      double original_bias = layers[l].biases[j];
-      layers[l].biases[j] += eps;
-      double perturbed_cost = cost(input, target_output);
-      layers[l].biases[j] = original_bias;
-      bias_gradients[l][j] = (perturbed_cost - original_cost) / eps;
-    }
-
-    // Weight gradients
-    weight_gradients[l] = DoubleMatrix(layers[l].get_n_neurons(), layers[l].get_n_input());
-    for (unsigned j = 0; j < layers[l].get_n_neurons(); ++j) {
-      for (unsigned k = 0; k < layers[l].get_n_input(); ++k) {
-        double original_weight = layers[l].weights(j, k);
-        layers[l].weights(j, k) += eps;
-        double perturbed_cost = cost(input, target_output);
-        layers[l].weights(j, k) = original_weight;
-        weight_gradients[l](j, k) = (perturbed_cost - original_cost) / eps;
-      }
-    }
-  }
-}
-
-// Compare backprop and finite difference gradients
-void NeuralNetwork::validate_gradients(
-    const DoubleVector &input,
-    const DoubleVector &target_output) {
-
-  // Compute gradients using finite differences
-  std::vector<DoubleMatrix> fd_weight_gradients;
-  std::vector<DoubleVector> fd_bias_gradients;
-  compute_gradients_finite_diff(input, target_output, fd_weight_gradients, fd_bias_gradients, 1e8);
-
-  // Compute gradients using backpropagation
-  std::vector<DoubleVector> activations;
-  std::vector<DoubleVector> weighted_inputs;
-  feed_forward_with_intermediate_results(input, activations, weighted_inputs);
-
-  DoubleVector delta = compute_output_layer_delta(
-      activations.back(), target_output, weighted_inputs.back(), layers.back());
-  std::vector<DoubleVector> deltas = backpropagate_error(delta, weighted_inputs, activations);
-
-  // Compare gradients
-  double max_diff = 0.0;
-  for (size_t l = 0; l < layers.size(); ++l) {
-    // Compare bias gradients
-    for (unsigned j = 0; j < layers[l].get_n_neurons(); ++j) {
-      double diff = std::abs(deltas[l][j] - fd_bias_gradients[l][j]);
-      max_diff = std::max(max_diff, diff);
-    }
-
-    // Compare weight gradients
-    for (unsigned j = 0; j < layers[l].get_n_neurons(); ++j) {
-      for (unsigned k = 0; k < layers[l].get_n_input(); ++k) {
-        double bp_grad = deltas[l][j] * activations[l][k];
-        double diff = std::abs(bp_grad - fd_weight_gradients[l](j, k));
-        max_diff = std::max(max_diff, diff);
-      }
-    }
-  }
-
-  std::cout << "Maximum difference between backprop and finite diff gradients: "
-            << max_diff << std::endl;
-}
-
 // Train the neural network using stochastic gradient descent
 void NeuralNetwork::train(
     const std::vector<std::pair<DoubleVector, DoubleVector>> &training_data,
@@ -573,10 +480,8 @@ void NeuralNetwork::train(
     const unsigned &max_iter,
     const std::string &convergence_history_file_name) {
 
-  if (!training_data.empty()) {
-    std::cout << "Validating gradients..." << std::endl;
-    validate_gradients(training_data[0].first, training_data[0].second);
-  }
+  // Output welcome message
+  std::cout << "Model training has started" << std::endl;
 
   // Initialize random number generator for shuffling
   std::default_random_engine generator(static_cast<unsigned>(std::time(0)));
