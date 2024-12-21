@@ -3,3 +3,6 @@
 /project2_neural_network_description.pdf
 *.dat
 *.txt
+*.pptx
+*.exe
+main_mult.cpp

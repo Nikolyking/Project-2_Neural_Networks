@@ -66,7 +66,7 @@ NeuralNetworkLayer::NeuralNetworkLayer(unsigned n_input_, unsigned n_neurons_, A
   // Initialize biases to zero
   biases = DoubleVector(n_neurons);
 
-  // Initialize weights to zero; dimensions: n_neurons x n_input
+  // Initialize weights to zero
   weights = DoubleMatrix(n_neurons, n_input);
 }
 
@@ -546,7 +546,7 @@ void NeuralNetwork::train(
 
   // Initialize random number generator for shuffling to improve quality of training
   // by reducing chance of overfitting and enhanced generalization 
-  std::default_random_engine generator(static_cast<unsigned>(std::time(0)));
+  std::default_random_engine generator(12345);
 
   // Open convergence history file if provided
   std::ofstream convergence_file;
